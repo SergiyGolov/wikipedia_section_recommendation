@@ -1,4 +1,4 @@
-In order to build the dataset you'll need:
+In order to build the dataset with up-to-date you'll need:
 - A SQL file containing information about Wikipedia pages: https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-page.sql.gz
     - import it in your SQL DB
 - A SQL file containing category links: https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-categorylinks.sql.gz

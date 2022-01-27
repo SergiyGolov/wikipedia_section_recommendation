@@ -2,6 +2,10 @@
 
 Github repository for the master thesis project "Recommending ordered sections with similar section filtering to help structuring Wikipedia articles". This project consisted in improving an already existing Wikipedia section recommendation algorithm: https://github.com/epfl-dlab/WCNPruning (from "Structuring Wikipedia Articles with Section Recommendations" paper)
 
+The notebooks and folders have numbers as prefixes which indicates in which order they need to be executed. If you want to skip the dataset building skip the `1-dataset_building` folder, and if you also want to skip the building of the data used by the semantic similar section detection skip the `2-semantic_similarity_data_building` folder. We provide our intermediate data which we had after executing each folder (see "Reproduction with 2021 data" section).
+
+Otherwise, run the notebooks in order, one at a time (i.e. free memory of a notebook before running the next).
+
 ## Prerequisite
 - python 3.9 if you want to run notebooks from the `2-semantic_similarity_data_building` (`torch` which is used by `sentence_transformers` does not work with python 3.10 for now), otherwise python 3.10 should be fine.
 - pip in order to install the required modules in `requirements.txt`
@@ -24,7 +28,7 @@ The XML and SQL dumps from March 2021 that we used are no more available, theref
 
 You can skip the notebooks from the `1-dataset_building` folder, download https://drive.switch.ch/index.php/s/e7p4wjavPudjZUC (i.e. the output that we had after running the `1-dataset_building` folder) and extract its content in the `data` folder and run notebooks from the `2-semantic_similarity_data_building` folder and then run experiment notebooks from `3-experiments_eval` folder.
 
-You can also skip the notebooks from the `1-dataset_building` and `2-semantic_similarity_data_building` folders, download https://drive.switch.ch/index.php/s/DDGNUFjmc9NvV8g (i.e. the output that we had after running the `1-dataset_building` and `2-semantic_similarity_data_building` folders) and extract its content in the `data` folder and then run experiment notebooks from `3-experiments_eval` folder
+You can also skip the notebooks from the `1-dataset_building` and `2-semantic_similarity_data_building` folders, download https://drive.switch.ch/index.php/s/DDGNUFjmc9NvV8g (i.e. the output that we had after running the `1-dataset_building` and `2-semantic_similarity_data_building` folders) and extract its content in the `data` folder and then run experiment notebooks from `3-experiments_eval` folder.
 
 ## Reproduction of 2017 paper
 The files needed for the 2017 paper reproduction can be downloaded here: https://figshare.com/articles/dataset/WCNPruning_input_set/6157445 and should be extracted in the `./data/epfl_paper` folder. If you want to reproduce the results with their precomputed category section counts this is enough.
