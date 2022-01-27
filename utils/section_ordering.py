@@ -1,6 +1,7 @@
 from common import *
 
 def get_category_top_sections(folder_name,categories):
+    # we need to compute order values only for top30 sections of each category, because only those are recommended
     category_top_sections={}
     with open(f"../data/results/{folder_name}/recs_by_category_top30.json") as f:
         for line in f:
@@ -42,6 +43,7 @@ def get_order_values_by_category(category_top_sections,article_sections,category
                 
         order_values_by_category[category]={}
         for section in section_order_numbers_beginning.keys():
+            # we save the number of values and their sums, which allows us to compue averages between multiple categories afterwards
             number_values=len(section_order_numbers_beginning[section])
             sum_values_beginning=sum(section_order_numbers_beginning[section])
             sum_values_end=sum(section_order_numbers_end[section])
@@ -51,6 +53,7 @@ def get_order_values_by_category(category_top_sections,article_sections,category
 
 
 def get_category_articles(wcnoutput_file,article_sections):
+    # gets articles which conributes to section counts of given category, ie articles from which we want to get section order values
     category_articles={}
     with open(wcnoutput_file) as f:
         for line in f:
@@ -63,6 +66,7 @@ def get_category_articles(wcnoutput_file,article_sections):
 
 def order_sections(sections, categories,order_values_by_category,ignore_context=False,ignore_end_order_value=False):
 
+    # if we ignore context, it's as if all articles are from the same category
     if ignore_context:
         categories=['ignore_context']
 
@@ -143,6 +147,7 @@ def apply_section_ordering_on_results(folder_name,ignore_context=False,ignore_en
                 sections=result_dict['sections']
                 recs=result_dict['recs']
 
+                # if ground truth has only 1 section, it's not interesting for eval
                 if len(recs)<2:
                     continue
                 
@@ -152,7 +157,6 @@ def apply_section_ordering_on_results(folder_name,ignore_context=False,ignore_en
                 ordered_result['unordered_recs']=[]
 
                 #we also order sections before semantic filtering
-
                 semantic_filtering_level=0
 
                 ordered_recs_with_order_values=order_sections(recs, categories,order_values_by_category,ignore_context=ignore_context,ignore_end_order_value=ignore_end_order_value)
@@ -169,11 +173,14 @@ def apply_section_ordering_on_results(folder_name,ignore_context=False,ignore_en
                 for filtered_recs in result_dict['filtered_recs']:
             
                     k=filtered_recs['k']
+                    # we apply section ordering only on filtered recs which had initial k=20, which gives the recs more chances to have at least
+                    # 2 common sections with ground truth (useful for eval)
                     if k!=20:
                         continue
                     semantic_filtering_level=filtered_recs['semantic_filtering_level']
                     recs_filtered=filtered_recs['recs_filtered']
 
+                    # we can't evaluate ordering of recs if only 1 section in recs
                     if len(recs_filtered)<2:
                         continue
 

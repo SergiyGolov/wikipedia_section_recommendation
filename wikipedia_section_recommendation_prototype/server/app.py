@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# in this file the word "sentence" instead of "section content" like in the report
+
 import urllib
 from statistics import quantiles
 import nltk
@@ -17,14 +19,15 @@ pattern_non_letters = re.compile('[\W_0-9]+')
 sno = nltk.stem.SnowballStemmer('english')
 stopwords = set(nltk.corpus.stopwords.words('english'))
 
-# client = MongoClient(host="mongodb_wikipedia_section_recommendation:27017")
-client = MongoClient()
+client = MongoClient(host="mongodb_wikipedia_section_recommendation:27017")
+# client = MongoClient()
 db = client.wikipedia
 
 app = Flask(__name__)
 app.jinja_env.filters['url_decode'] = lambda x: urllib.parse.unquote(x)
 
 # these are the default minimum cosine similarity thresholds for each semantic filtering level
+# based on 3-quantiles over cosine sim distribution among all category communities
 semantic_filtering_level_default_min_cosine_sim_map = {
     1: 0.6228756904602051,
     2: 0.554182292450042,
@@ -150,9 +153,11 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
         result = db.category_community.find_one({'category_id': category_id})
         if result:
             community_ids.add(result['community_id'])
+
     if len(community_ids) == 0:
         return recs,{}
 
+    # key: section, value: set of stemmed words in section title
     sections_set_stemmed_words = {}
 
     def stemm_section(section):
@@ -166,6 +171,8 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
             sections_set_stemmed_words[section] = set(
                 [sno.stem(word) for word in splitted_cleaned_section if word not in stopwords])
 
+    # even if a pair of sections has a high same article appearance, if they share same stemmed words we add this pair in similarity graph
+    # e.g. "Works" and "Work" or "Life" and "Early life"
     def check_stemmed_sections(section_A, section_B):
         if section_A not in sections_set_stemmed_words.keys():
             stemm_section(section_A)
@@ -200,6 +207,7 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
             result = db.sentence_counter_by_section_by_community.find_one(
                 {'community_id': community_id, 'section': section})
             if result:
+                # the similar section pairs are stored with ids
                 section_id_map[section] = result['id']
                 sentence_counter_by_section[section] = result['nb_sentences']
                 sentence_counter_by_section_global[section] += sentence_counter_by_section[section]
@@ -207,8 +215,10 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
             result = db.section_articles_by_community.find_one(
                 {'community_id': community_id, 'section': section})
             if result:
+                # set of articles in which given section appears
                 section_articles[section] = set(result['articles'])
 
+        # the similar section pairs are stored with ids
         id_section_map = {v: k for k, v in section_id_map.items()}
 
         section_ids = [section_id_map[x]
@@ -231,16 +241,16 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
             nb_different_articles_both_sections = len(
                 section_articles[section_A].intersection(section_articles[section_B]))
 
-            same_article_probability = nb_different_articles_both_sections / \
+            same_article_appearance = nb_different_articles_both_sections / \
                 nb_possible_different_articles
 
-            max_same_article_probability_threshold = 0.001
+            max_same_article_appearance_threshold = 0.001
 
-            # we allow more sections to be grouped together at semantic_filtering_level=3
+            # we allow more sections to be grouped together at semantic_filtering_level=3 even if they appear more in same articles
             if semantic_filtering_level == 3:
-                max_same_article_probability_threshold = 0.005
+                max_same_article_appearance_threshold = 0.005
 
-            if same_article_probability > max(max_same_article_probability_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
+            if same_article_appearance > max(max_same_article_appearance_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
                 continue
 
             if normalized_nb_similar_sentences > 1/(sentence_counter_by_section[section_A]*sentence_counter_by_section[section_B]) or min(sentence_counter_by_section[section_A], sentence_counter_by_section[section_B]) == 1:
@@ -280,15 +290,17 @@ def filter_semantic_similar_sections(recs, categories, semantic_filtering_level)
     dendo = community_louvain.generate_dendrogram(
         g, weight="normalized_nb_similar_sentences", random_state=42, resolution=1)
 
+    # we use first pass of Louvain community detection which gives us smaller communities than by default
     partition = community_louvain.partition_at_level(dendo, 0)
 
+    # key: similar section community id, value: set of sections
     com_sections = {}
     for section, com in partition.items():
         if com not in com_sections.keys():
             com_sections[com] = set()
         com_sections[com].add(section)
-
     
+    # this is used to show on the front end which sections were filtered out alongside the one that is kept
     filtered_sections_map={}
     semantic_similar_sections_list=[]
 

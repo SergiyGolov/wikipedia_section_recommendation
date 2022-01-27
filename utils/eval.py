@@ -43,7 +43,7 @@ def plot(x, ys, xlabel, ylabels, ylabel, title, markers, colors, linestyles, yli
 
 
 def load_results(result_file_name, rec_section_dict_key):
-    # rec_section_dict_key="_1" for results provided by paper's author, and rec_section_dict_key="section" in our case
+    # rec_section_dict_key="_1" for results provided by initial paper's author, and rec_section_dict_key="section" in our case
     precision = {}
     recall = {}
 
@@ -65,7 +65,7 @@ def load_results(result_file_name, rec_section_dict_key):
     return precision, recall
 
 
-def plot_results(precision, recall, title, plot_proportion_upper_bounds=False,min_k=1):
+def plot_results(precision, recall, title, min_k=1):
 
     mean_precision = {}
     mean_recall = {}
@@ -204,9 +204,7 @@ def load_filtering_results_and_plot(folder_name):
     for semantic_filtering_level in [0, 1, 2, 3]:
         results_by_semantic_filtering_level[semantic_filtering_level] = {
             'precision': {},
-            'recall': {},
-            'precision_upper_bounds': {},
-            'recall_upper_bounds': {}
+            'recall': {}
         }
         nb_sections_after_filtering[semantic_filtering_level]={}
 
@@ -216,7 +214,6 @@ def load_filtering_results_and_plot(folder_name):
             nb_sections_after_filtering[semantic_filtering_level][k]=[]
 
 
-
     filtered_result_file_name=f"../data/results/{folder_name}/filtered_recs_by_article.json"
     result_file_name=f"../data/results/{folder_name}/recs_by_article.json"
 
@@ -224,12 +221,14 @@ def load_filtering_results_and_plot(folder_name):
 
     with open(filtered_result_file_name, "r", encoding="utf8") as f:
         for line in tqdm(f):
+            # one line by test set article
             result_dict = json.loads(line)
             sections = set(result_dict['sections'])
             
             already_evaluated_recs={}
 
             for filtered_recs in result_dict['filtered_recs']:
+                # one element for each semantic filtering level, for each k before filtering (k from 2 to 20)
 
                 initial_k=filtered_recs['k']
                 semantic_filtering_level=filtered_recs['semantic_filtering_level']
@@ -294,10 +293,11 @@ def kendall_tau(listA,listB):
     listB=[x for x in listB if x in common_items]
 
     # this is possible if there are duplicate sections in the ground truth, and one of those duplicate section was in the recommendation list
+    # in such a case, both lists don't have the same length
     if len(listA)!=len(listB):
         return None
     
-    #transform A B C to 1 2 3
+    #transform A B C to 1 2 3 because kendalltau function works only with lists of indexes and not e.g. lists of sections
     section_index_map={}
     for index,section in enumerate(listA):
         section_index_map[section]=index

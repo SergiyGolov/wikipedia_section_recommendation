@@ -67,7 +67,8 @@ def get_category_id_to_title_map():
 
 
 def get_categories_of_articles(test_set_articles, articles_categories_file):
-    # used to know for which categories we need to compute the category section counts
+    # used to know for which categories we need to compute the category section counts, i.e. we're not interested in 
+    # categories to which no article from the test set belongs
 
     category_title_to_id_map = get_category_title_to_id_map()
 
@@ -81,7 +82,8 @@ def get_categories_of_articles(test_set_articles, articles_categories_file):
             article_id = int(split_line[0])
             if article_id in test_set_articles:
                 category = split_line[2]
-                # for the epfl reproduction which has 2017 data, we don't have some categories which were renamed in our category->id file, therefore we use the name as identifier in such cases
+                # for the epfl reproduction which has 2017 data, we don't have some categories which were renamed in our category->id file,
+                # therefore we use the name as identifier in such cases
                 if category in category_title_to_id_map.keys():
                     category = category_title_to_id_map[category]
                 if article_id not in article_categories.keys():
@@ -102,8 +104,7 @@ def count_sections(articles_in_category, article_sections, sections_counter):
 
 def get_category_section_counts(article_categories, wcnoutput_file, train_set, article_sections, include_test_set=False, top_k=30):
 
-    category_title_to_id_map = {category_title: category_id for category_id,
-                                category_title in read_tuple_list_from_file((int, str), "../data/category_ids_titles.tsv")}
+    category_title_to_id_map = get_category_title_to_id_map()
 
     category_section_counts = {}
 
@@ -143,8 +144,7 @@ def get_category_section_counts(article_categories, wcnoutput_file, train_set, a
 
 
 def get_epfl_category_section_counts(article_categories):
-    category_title_to_id_map = {category_title: category_id for category_id,
-                                category_title in read_tuple_list_from_file((int, str), "../data/category_ids_titles.tsv")}
+    category_title_to_id_map = get_category_title_to_id_map()
 
     test_set_categories = set().union(*article_categories.values())
 
@@ -238,19 +238,22 @@ def run_eval(test_set, article_sections, article_categories, category_section_co
             if article_id not in article_sections.keys():
                 continue
 
-            # in the epfl reproduction, there are some articles which are in the results file but not in the provided article_categories_sept17.tsv file (which is strange because their WCNPruning program imports article ids from the article_categories file)
+            # in the epfl reproduction, there are some articles which are in the results file but not in the provided article_categories_sept17.tsv file
+            # (which is strange because their WCNPruning program imports article ids from the article_categories file)
             if article_id not in article_categories.keys():
                 continue
 
             sections_counter = recommend_sections(
                 article_id, article_categories, category_section_counts)
+
             # it is possible that all the categories to which a given article belongs were not pure enough after pruning algorithm
             if not sections_counter:
                 continue
 
             real_sections = article_sections[article_id]
 
-            # for the epfl reproduction which has 2017 data, we don't have some categories which were renamed in our category->id file, therefore we use the name as identifier in such cases (if category_id in category_id_to_title_map.keys() else category_id)
+            # for the epfl reproduction which has 2017 data, we don't have some categories which were renamed in our category->id file,
+            # therefore we use the name as identifier in such cases (if category_id in category_id_to_title_map.keys() else category_id)
             categories = [category_id_to_title_map[category_id] if category_id in category_id_to_title_map.keys() else category_id
                         for category_id in article_categories[article_id]]
 

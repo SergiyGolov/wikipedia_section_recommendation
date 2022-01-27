@@ -1,4 +1,16 @@
-#TODO: clean up this file, comment it etc.
+# this file was adapted from filter_semantic_similar_sections function in wikipedia_section_recommendation_prototype/server/app.py file
+# therefore we have replaced mongodb calls with get_XXX functions which loads data from disk once and keeps it in memory
+# because we don't know in advance which category communites will be present, we load them one by one when needed for each new encountered
+# category community
+
+# the idea of the semantic filtering on the whole dataset is to avoid to load each time the semantic similar pairs for k=2 to 20
+# for each semantic filtering level for each article and build a semantic similar section graph each time,
+# but instead build one graph for each article for each semantic filtering level, by beginning with k=2 and then for k=3 to 20,
+# we add new edges in the similarity graph if the section introduced with the new k is present in semantic similar pairs for the current
+# semantic filtering level in the current category community
+# otherwise it would take hundreds of hours to apply the semantic filtering over the whole dataset, now it takes "only" 7-8 hours
+
+# "sentences" in this file corresponds to "section contents" in the report
 
 from common import *
 import community as community_louvain
@@ -11,6 +23,7 @@ sno = nltk.stem.SnowballStemmer('english')
 stopwords = set(nltk.corpus.stopwords.words('english'))
 
 # these are the default minimum cosine similarity thresholds for each semantic filtering level
+# based on 3-quantiles over cosine sim distribution among all category communities
 semantic_filtering_level_default_min_cosine_sim_map = {
     1: 0.6228756904602051,
     2: 0.554182292450042,
@@ -20,6 +33,7 @@ semantic_filtering_level_default_min_cosine_sim_map = {
 category_community={}
 
 def load_files_in_memory():
+    # we load at beginning those files because we're sure that they will be needed
     print("\tLoading files in memory")
     processed_communities=set()
     with open(f"../data/semantic_similarity/processed_communities", "r", encoding="utf8") as f_in:
@@ -40,7 +54,6 @@ cosine_sim_thresholds_by_community={}
 
 def get_cosine_sim_thresholds_by_community(community_id):
     if community_id not in cosine_sim_thresholds_by_community.keys():
-        
         try:
             with open(f"../data/semantic_similarity/community_{community_id}/cosine_sim_thresholds.json", "r", encoding="utf8") as f_in:
                 cosine_sim_thresholds_by_community[community_id]=[]
@@ -55,6 +68,7 @@ def get_cosine_sim_thresholds_by_community(community_id):
 sentence_counter_by_section_by_community={}
 
 def get_sentence_counter_by_section_by_community(section,community_id):
+    # gets count of unique sentences for given section in given category community
     if community_id not in sentence_counter_by_section_by_community.keys():
         sentence_counter_by_section_by_community[community_id]={}
         with open(f"../data/semantic_similarity/community_{community_id}/sentence_counter_by_section.json", "r", encoding="utf8") as f_in:
@@ -72,6 +86,7 @@ def get_sentence_counter_by_section_by_community(section,community_id):
 section_articles_by_community={}
 
 def get_section_articles_by_community(community_id):
+    # gets articles in which section appears in given category community
     if community_id not in section_articles_by_community.keys():
         section_articles_by_community[community_id]={}
         with open(f"../data/semantic_similarity/community_{community_id}/section_articles.json", "r", encoding="utf8") as f_in:
@@ -85,10 +100,15 @@ semantic_similar_section_pairs_by_community={}
 
 def get_semantic_similar_section_pairs(community_id,min_cosine_threshold,sections):
     if community_id not in semantic_similar_section_pairs_by_community.keys():
-        max_same_article_probability_threshold = 0.005
+        # the idea is to not load pairs of similar sections whose same_article_appearance is above threshold for sem filter lvl 3
+        # because those pairs will often be iterated on
+        max_same_article_appearance_threshold = 0.005
         
         semantic_similar_section_pairs_by_community[community_id]=[]
+        # we pass "" instead of section title just to load file content in memory
         get_sentence_counter_by_section_by_community("",community_id)
+
+        # pairs of semantical similar sections are represented with ids instead of titles therefore we need to map ids to titles
         id_section_map={}
         for section,result in sentence_counter_by_section_by_community[community_id].items():
             id_section_map[result['id']]=section
@@ -107,10 +127,11 @@ def get_semantic_similar_section_pairs(community_id,min_cosine_threshold,section
                 nb_different_articles_both_sections = len(
                     section_articles[section_A].intersection(section_articles[section_B]))
 
-                same_article_probability = nb_different_articles_both_sections / \
+                same_article_appearance = nb_different_articles_both_sections / \
                     nb_possible_different_articles
 
-                if same_article_probability > max(max_same_article_probability_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
+                # we don't keep pairs in memory which will be ignored by filtering algo
+                if same_article_appearance > max(max_same_article_appearance_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
                     continue
 
                 semantic_similar_section_pairs_by_community[community_id].append(json_line)
@@ -122,7 +143,7 @@ def get_semantic_similar_section_pairs(community_id,min_cosine_threshold,section
 
     return semantic_similar_section_pairs
 
-
+# key: section, value: set of stemmed words in section title
 sections_set_stemmed_words = {}
 
 def stemm_section(section):
@@ -136,6 +157,8 @@ def stemm_section(section):
         sections_set_stemmed_words[section] = set(
             [sno.stem(word) for word in splitted_cleaned_section if word not in stopwords])
 
+# even if a pair of sections has a high same article appearance, if they share same stemmed words we add this pair in similarity graph
+# e.g. "Works" and "Work" or "Life" and "Early life"
 def check_stemmed_sections(section_A, section_B):
     if section_A not in sections_set_stemmed_words.keys():
         stemm_section(section_A)
@@ -186,16 +209,16 @@ def filter_semantic_similar_sections(recs,community_ids, semantic_filtering_leve
             nb_different_articles_both_sections = len(
                 section_articles[section_A].intersection(section_articles[section_B]))
 
-            same_article_probability = nb_different_articles_both_sections / \
+            same_article_appearance = nb_different_articles_both_sections / \
                 nb_possible_different_articles
 
-            max_same_article_probability_threshold = 0.001
+            max_same_article_appearance_threshold = 0.001
 
-            # we allow more sections to be grouped together at semantic_filtering_level=3
+            # we allow more sections to be grouped together at semantic_filtering_level=3 even if they appear more in same articles
             if semantic_filtering_level == 3:
-                max_same_article_probability_threshold = 0.005
+                max_same_article_appearance_threshold = 0.005
 
-            if same_article_probability > max(max_same_article_probability_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
+            if same_article_appearance > max(max_same_article_appearance_threshold, 1/nb_possible_different_articles) and min(len(section_articles[section_A]),len(section_articles[section_B]))>1  and not check_stemmed_sections(section_A, section_B):
                 continue
 
             if normalized_nb_similar_sentences > 1/(sentence_counter_by_section[section_A]*sentence_counter_by_section[section_B]) or min(sentence_counter_by_section[section_A], sentence_counter_by_section[section_B]) == 1:
@@ -234,8 +257,10 @@ def filter_semantic_similar_sections(recs,community_ids, semantic_filtering_leve
     dendo = community_louvain.generate_dendrogram(
         g, weight="normalized_nb_similar_sentences", random_state=42, resolution=1)
 
+    # we use first pass of Louvain community detection which gives us smaller communities than by default
     partition = community_louvain.partition_at_level(dendo, 0)
 
+    # key: similar section community id, value: set of sections
     com_sections = {}
     for section, com in partition.items():
         if com not in com_sections.keys():
@@ -269,6 +294,11 @@ def filter_semantic_similar_sections(recs,community_ids, semantic_filtering_leve
 
 
 def get_current_article_similar_pairs(community_id,min_cosine_threshold,sections):
+    # we save potential similar section pairs for the category communities to which article belongs when we start with k=2
+    # for a given semantic filtering level into a temporary list of semantic similar pairs (current_article_similar_pairs)
+    # each time we add a pair of similar section in the graph we delete this pair from this temporary list of semantic similar pair
+    # thanks to this, when k progresses further, less pairs need to be checked inside this temporary list 
+    # if they contain the newly introduced section as k progresses
     pairs=[]
     indexes_to_delete=set()
     for i,pair in enumerate(current_article_similar_pairs[community_id]):
@@ -281,6 +311,10 @@ def get_current_article_similar_pairs(community_id,min_cosine_threshold,sections
     return pairs
 
 def copy_pairs(pair_list,min_cosine_threshold=0.5,remove_pairs_under_threshold=False):
+    # this is used to backup the temporary list of potential semantic similar pair for current article
+    # in order to reuse this temporary list when we build a new graph for current article but with other semantic similarity level
+    # we start with semantic similarity lvl 3 and progress to 2 and 1, this way we can avoid to copy similar section pairs that are used only for lvl 3
+    # when we build the semantic similar graph for lvl 2 and then we avoid to copy pairs of lvl 2 when we build graph for lvl 1
     if remove_pairs_under_threshold:
         indexes_to_delete=set()
         pair_list_copy=[]
@@ -294,13 +328,16 @@ def copy_pairs(pair_list,min_cosine_threshold=0.5,remove_pairs_under_threshold=F
 
         return pair_list_copy
     else:
+        # 0.5 is the minimum cosine similarity score across all pairs in dataset, therefore if the threshold is 0.5 we copy everything
         if min_cosine_threshold!=0.5:
             return [pair.copy() for pair in pair_list if pair['mean_score']>=min_cosine_threshold]
         else:
             return [pair.copy() for pair in pair_list]
 
+# we clear graph between each semantic filtering level for each article instead of creating new graph, it's faster that way
 g = nx.Graph()
 
+# temporary list of semantic similar pairs for category communities to which current article belongs
 current_article_similar_pairs={}
 
 def apply_semantic_filtering_on_results(folder_name):
@@ -312,6 +349,7 @@ def apply_semantic_filtering_on_results(folder_name):
     result_file_name = f"../data/results/{folder_name}/recs_by_article.json"
     filtered_result_file_name=f"../data/results/{folder_name}/filtered_recs_by_article.json"
 
+    # useful when the semantic filtering on whole dataset is interrupted
     processed_articles=set()
     try:
         with open(filtered_result_file_name, "r",encoding="utf8") as f_in:
@@ -369,22 +407,25 @@ def apply_semantic_filtering_on_results(folder_name):
                                                                         ] = result['min_cosine_sim']
                     else:
                         min_cosine_threshold_by_community_by_semantic_filtering_level[community_id] = semantic_filtering_level_default_min_cosine_sim_map
-
-                    section_id_map = {}                
                     
                     for section in recs:
                         result = get_sentence_counter_by_section_by_community(section,community_id)
                         if result:
                             sentence_counter_by_section_global[section] += result['nb_sentences']
 
+                    # copy similar pairs containing sections for rec list of length 20
                     current_article_similar_pairs[community_id]=copy_pairs(get_semantic_similar_section_pairs(community_id,0.50,recs_set))
                 
                 similar_pairs_copy={}
                 for community_id in community_ids:
+                    # because we delete pairs from current_article_similar_pairs after inserting them into graph, 
+                    # we backup them for next semantic filtering lvl
                     similar_pairs_copy[community_id]=copy_pairs(current_article_similar_pairs[community_id])
 
                 filtered_result={'article':article,'categories':categories,'sections':sections,'recs':recs,'filtered_recs':[]}
 
+                # we begin with semantic filtering lvl 3, then delete pairs which were similar only for this level, this reduces the number of pairs
+                # on which levels under will have to iterate
                 for semantic_filtering_level in reversed(semantic_filtering_levels):
                     g.clear()
                     
@@ -396,6 +437,8 @@ def apply_semantic_filtering_on_results(folder_name):
                     if semantic_filtering_level>1:
                         for community_id in community_ids:
                             min_cosine_threshold=min_cosine_threshold_by_community_by_semantic_filtering_level[community_id][semantic_filtering_level-1]
+                            # we copy pairs from backup to tmp similar pair list, and remove pairs which have cosine sim under threshold of next 
+                            # semantic filtering lvl
                             current_article_similar_pairs[community_id]=copy_pairs(similar_pairs_copy[community_id],min_cosine_threshold=min_cosine_threshold,remove_pairs_under_threshold=True)
 
                 f_out.write(json.dumps(filtered_result, ensure_ascii=False)+"\n")
