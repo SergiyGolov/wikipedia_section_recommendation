@@ -1,0 +1,21 @@
+version: '3'
+services:
+  mongodb_wikipedia_section_recommendation:
+    image: mongo:latest
+    restart: always
+    ports:
+      - 47017:27017
+    volumes:
+      - dbdata:/data/db
+      - ../mongodb/import.sh:/docker-entrypoint-initdb.d/import.sh
+      - ../mongodb/dump:/dump
+  app:
+    image: wikipedia_section_recommendation:latest
+    ports:
+      - 80:5000
+    depends_on:
+      - mongodb_wikipedia_section_recommendation
+    restart: always
+
+volumes:
+  dbdata:
