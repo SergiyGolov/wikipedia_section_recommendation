@@ -8,11 +8,17 @@ In order to build the dataset with up-to-date you'll need:
 - A TTL file containing types for DBpedia entities: https://databus.dbpedia.org/dbpedia/mappings/instance-types/ download the "en, specific" file
     - this file should be placed in the `../data` folder
 
+If you want to build the dataset with data from March 2021 in order to reproduce the results that we've published, here are the files:
+- `page.sql`: https://drive.switch.ch/index.php/s/8XMG1ELIXBK2T2y
+- `categorylinks.sql`: https://drive.switch.ch/index.php/s/I1GrxpL5ndxycjb
+- `pages-articles.xml.bz2`: https://drive.switch.ch/index.php/s/ug6QaLiZgn76Rwa
+- `instance-types.ttl`: https://drive.switch.ch/index.php/s/Gp5BV9ul8LxYjeq
+
+Importing the SQL files could take a while (some hours), see https://stackoverflow.com/questions/30387731/loading-enwiki-latest-categorylinks-sql-into-mysql/40379086#40379086 to speed it up.
+
 Once that you have imported the SQL files, redefine if needed the MYSQL variables in the `../utils/dataset_building.py` file
 
 Then you'll need to download https://github.com/SergiyGolov/wikiextractor and install it locally as specified in its README (we have corrected a bug that occurred while parsing list elements of Wikipedia articles with an HTML output, therefore if you'll download it from pip it won't work).
-
-If you also want to reproduce the results from 2017 by extracting the article's sections yourself before computing the category section counts, you'll first need to download files from https://figshare.com/articles/dataset/WCNPruning_input_set/6157445 and extract them in the `../data/epfl_paper` folder. Then you'll need to download Wikipedia's 2017 dump here: http://itorrents.org/torrent/D567CE8E2EC4792A99197FB61DEAEBD70ADD97C0.torrent and put it in the `../data` folder. Finally you'll have to set the `reproducion_2017` variable to `True` in `6-get_section_content.ipynb` and `7-filter_sections.ipynb`.
 
 If the `.jar` files from this folder do not work for you, you can build them yourself:
 - build https://github.com/SergiyGolov/WCNPruning (we added the possibility to change the gini threshold by command line) to obtain `wcnpruning-0.0.1-jar-with-dependencies.jar`
