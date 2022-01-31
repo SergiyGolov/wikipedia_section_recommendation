@@ -25,7 +25,7 @@ The evaluation of those results are shown in the following notebooks:
 ## Reproduction of 2017 paper
 The files needed for the 2017 paper reproduction can be downloaded here: https://figshare.com/articles/dataset/WCNPruning_input_set/6157445 and should be extracted in the `./data/epfl_paper` folder. If you want to reproduce the results with their precomputed category section counts, this is enough.
 
-If you also want to reproduce the results from 2017 by extracting the article's sections yourself before computing the category section counts, you'll also need to download Wikipedia's 2017 dump here: http://itorrents.org/torrent/D567CE8E2EC4792A99197FB61DEAEBD70ADD97C0.torrent and put it in the `../data` folder. Finally you'll have to set the `reproducion_2017` variable to `True` in `1-dataset_building/6-get_section_content.ipynb` and `1-dataset_building/7-filter_sections.ipynb`.
+If you also want to reproduce the results from 2017 by extracting the article's sections yourself before computing the category section counts, you'll also need to download Wikipedia's 2017 dump here: http://itorrents.org/torrent/D567CE8E2EC4792A99197FB61DEAEBD70ADD97C0.torrent and put it in the `./data` folder. Finally you'll have to set the `reproducion_2017` variable to `True` in `1-dataset_building/6-get_section_content.ipynb` and `1-dataset_building/7-filter_sections.ipynb`.
 
 ## Report
 The report describing our method in detail can be downloaded here: https://drive.switch.ch/index.php/s/c83FmfIPkyph5jr
