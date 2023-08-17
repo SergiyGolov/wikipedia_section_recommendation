@@ -2,6 +2,9 @@
 
 Github repository for the master thesis project "Recommending ordered sections with similar section filtering to help structuring Wikipedia articles". This project consisted in improving an already existing Wikipedia section recommendation algorithm: https://github.com/epfl-dlab/WCNPruning (from "Structuring Wikipedia Articles with Section Recommendations" paper)
 
+- The report is available in the root of this repository: [report.pdf](https://github.com/SergiyGolov/wikipedia_section_recommendation/blob/main/report.pdf)
+- The presentation slides are also available in the root of this repository [presentation.pdf](https://github.com/SergiyGolov/wikipedia_section_recommendation/blob/main/presentation.pdf)
+
 The notebooks and folders have numbers as prefixes which indicates in which order they need to be executed. Run the notebooks in order, one at a time (i.e. free memory of a notebook before running the next).
 
 ## Prerequisite
